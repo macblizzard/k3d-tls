@@ -1,0 +1,128 @@
+# This manifest assumes 'wordpress' namespace is already present:
+#
+#   kubectl create namespace wordpress
+#
+# Apply the manifest with:
+#
+#   kubectl apply -f wordpress.yml
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wp-pv-claim
+  namespace: wordpress
+  labels:
+    app: wordpress
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress
+  namespace: wordpress
+  labels:
+    app: wordpress
+spec:
+  selector:
+    matchLabels:
+      app: wordpress
+      tier: frontend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: wordpress
+        tier: frontend
+    spec:
+      containers:
+        - image: wordpress:6.0.2-apache
+          name: wordpress
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: WORDPRESS_DB_HOST
+              value: wordpress-mariadb
+            - name: WORDPRESS_DB_NAME
+              value: wp_db
+            - name: WORDPRESS_DB_USER
+              value: admin
+            - name: WORDPRESS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-pass
+                  key: password
+          ports:
+            - containerPort: 80
+              name: wordpress
+          volumeMounts:
+            - name: wordpress-persistent-storage
+              mountPath: /var/www/html
+          resources:
+            limits:
+              cpu: '1'
+              memory: '512Mi'
+            requests:
+              cpu: '500m'
+              memory: '256Mi'
+      volumes:
+        - name: wordpress-persistent-storage
+          persistentVolumeClaim:
+            claimName: wp-pv-claim
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress
+  namespace: wordpress
+  labels:
+    app: wordpress
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    app: wordpress
+    tier: frontend
+
+---
+# apiVersion: extensions/v1beta1
+# kind: Ingress
+# metadata:
+#   name: wordpress
+#   namespace: wordpress
+# spec:
+#   rules:
+#     - host: wordpress.10.0.100.99.nip.io
+#       http:
+#         paths:
+#           - path: /
+#             backend:
+#               serviceName: wordpress
+#               servicePort: 80
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: wordpress-https
+  namespace: wordpress
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`wp.local`)
+      kind: Rule     
+      services:
+        - name: wordpress
+          port: 80
+  tls:
+    certResolver: pebble

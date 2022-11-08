@@ -1,0 +1,71 @@
+# do the following first before applying the manifest
+# make sure to start k3d cluster with volume mounts
+# eg: k3d create --name "k3d-cluster" --volume /opt/k3dvol:/opt/k3dvol --publish "80:80" --workers 2
+# or add the volume mounts to k3d config file before starting k3d cluster
+# mkdir -p /opt/k3dvol/adguardhome
+# copy AdGuardHome.yaml to the directory /opt/k3dvol/adguardhome/conf/
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: task-pv-volume
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/k3dvol/adguardhome/conf
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: task-pv-claim
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: adguard-home
+  namespace: default
+  labels:
+    app: adguard-home
+spec:
+  replicas: 1
+  progressDeadlineSeconds: 600
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: adguard-home
+  template:
+    metadata:
+      labels:
+        app: adguard-home
+    spec:
+      containers:
+      - name: adguard-home
+        image: adguard/adguardhome:v0.107.16
+        imagePullPolicy: Always
+        volumeMounts:
+        - name: certs
+          mountPath: /opt/adguardhome/certs
+        - name: conf
+          mountPath: "/opt/adguardhome/conf"
+      volumes:
+      - name: certs
+        secret:
+          secretName: local-example-com-tls  # secret name for tls certificate
+      - name: conf
+        persistentVolumeClaim:
+          claimName: task-pv-claim

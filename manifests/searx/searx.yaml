@@ -1,0 +1,70 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: searxng
+  namespace: default
+  labels:
+    app: searxng
+spec:
+  replicas: 1
+  progressDeadlineSeconds: 600
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: searxng
+  template:
+    metadata:
+      labels:
+        app: searxng
+    spec:
+      containers:
+      - name: searxng
+        image: searxng/searxng:latest
+        imagePullPolicy: Always
+        env:
+        - name: INSTANCE_NAME
+          value: "My Search Engine"
+        - name: BASE_URL
+          value: "https://searx.example.com"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: searxng
+  namespace: default
+spec:
+  selector:
+    app: searxng
+  ports:
+  - name: http
+    targetPort: 8080
+    port: 80
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: searxng
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: traefik-external
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`www.searx.example.com`)
+      kind: Rule
+      services:
+        - name: searxng
+          port: 80
+    - match: Host(`searx.example.com`)
+      kind: Rule
+      services:
+        - name: searxng
+          port: 80
+      middlewares:
+        - name: default-headers
+  tls:
+    secretName: example-com-tls

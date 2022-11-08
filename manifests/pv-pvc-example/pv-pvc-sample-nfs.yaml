@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs
+spec:
+  capacity:
+    storage: 500Mi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs
+  nfs:
+    server: 172.18.0.1                 # nfs server ip
+    path: "/srv/nfs4/adguardhome"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs
+  resources:
+    requests:
+      storage: 100Mi
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: adguard-home
+  namespace: default
+  labels:
+    app: adguard-home
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: adguard-home
+  template:
+    metadata:
+      labels:
+        app: adguard-home
+    spec:
+      containers:
+      - name: adguard-home
+        image: adguard/adguardhome:latest
+        volumeMounts:
+        - name: nfs
+          mountPath: /opt/adguardhome/
+      volumes:
+      - name: nfs
+        persistentVolumeClaim:
+        claimName: nfs

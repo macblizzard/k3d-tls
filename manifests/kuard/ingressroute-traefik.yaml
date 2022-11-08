@@ -1,0 +1,33 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: kuard
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: traefik-external
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`kuard.example.com`)
+      kind: Rule
+      services:
+        - name: kuard
+          port: 80
+      middlewares:
+        - name: default-headers
+  tls:
+    secretName: kuard-example-tls
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kuard-cert
+  namespace: default
+spec:
+  secretName: kuard-example-tls
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+  dnsNames:
+  - "kuard.example.com"

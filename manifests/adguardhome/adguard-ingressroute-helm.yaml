@@ -1,0 +1,29 @@
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: adguard-home
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: traefik-external
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`www.adguard.example.com`)
+      kind: Rule
+      middlewares:
+        - name: default-headers
+      services:
+        - name: adguard-home
+          port: 3000
+    - match: Host(`adguard.example.com`)
+      kind: Rule
+      middlewares:
+        - name: default-headers
+      services:
+        - name: adguard-home
+          port: 3000
+  tls:
+    secretName: local-example-com-tls
+
