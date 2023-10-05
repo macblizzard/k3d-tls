@@ -14,5 +14,5 @@ echo " "
 
 sleep 10
 export KUBECONFIG=$(k3d kubeconfig write mycluster)
-echo "KUBECONFIG=$(k3d kubeconfig write mycluster)" >> ~/.bashrc
+echo "export KUBECONFIG=$(k3d kubeconfig write mycluster)" >> ~/.bashrc
 source ~/.bashrc
